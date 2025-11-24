@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Обработка изображений - Добавление шума</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Лабораторная работа: Добавление шума к изображению</h1>
+        
+        {% if message %}
+            <div class="message {{ 'success' if 'успешно' in message else 'error' }}">
+                {{ message }}
+            </div>
+        {% endif %}
+
+        {% if captcha_error %}
+            <div class="message error">
+                {{ captcha_error }}
+            </div>
+        {% endif %}
+
+        <form method="POST" enctype="multipart/form-data" class="upload-form">
+            <fieldset>
+                <legend>Загрузка изображения и настройки</legend>
+                
+                <div class="form-group">
+                    <label for="image">Выберите изображение:</label>
+                    <input type="file" id="image" name="image" accept="image/*" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="noise_level">Уровень шума (0-100%):</label>
+                    <input type="range" id="noise_level" name="noise_level" 
+                           min="0" max="100" value="20" 
+                           oninput="noiseValue.value = this.value">
+                    <output id="noiseValue">20</output>%
+                </div>
+
+                <!-- Добавляем капчу -->
+                <div class="form-group">
+                    <div class="g-recaptcha" data-sitekey="6LdyaBYsAAAAACyUnXmvWZuWD3o2U0vZ1P8_nBw7"></div>
+                </div>
+                
+                <button type="submit" class="btn">Обработать изображение</button>
+            </fieldset>
+        </form>
+
+        {% if original_hist and noisy_hist %}
+        <div class="results">
+            <fieldset>
+                <legend>Результаты обработки</legend>
+                
+                <div class="histograms">
+                    <div class="histogram-item">
+                        <h3>Гистограмма исходного изображения</h3>
+                        <img src="data:image/png;base64,{{ original_hist }}" 
+                             alt="Гистограмма исходного изображения">
+                    </div>
+                    
+                    <div class="histogram-item">
+                        <h3>Гистограмма зашумленного изображения</h3>
+                        <img src="data:image/png;base64,{{ noisy_hist }}" 
+                             alt="Гистограмма зашумленного изображения">
+                    </div>
+                </div>
+                
+                {% if noisy_image %}
+                <div class="image-result">
+                    <h3>Зашумленное изображение</h3>
+                    <img src="data:image/png;base64,{{ noisy_image }}" 
+                         alt="Зашумленное изображение" class="processed-image">
+                </div>
+                {% endif %}
+            </fieldset>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>
