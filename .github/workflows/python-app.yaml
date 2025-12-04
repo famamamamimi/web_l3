@@ -1,0 +1,74 @@
+name: Python application
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-flask
+
+    - name: Lint with flake8
+      run: |
+        pip install flake8
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+    - name: Test with pytest
+      run: |
+        # Создаем тестовый файл если его нет
+        if [ ! -f test_app.py ]; then
+          cat > test_app.py << 'EOF'
+        from app import app
+        import unittest
+
+        class FlaskTestCase(unittest.TestCase):
+            def test_index(self):
+                tester = app.test_client(self)
+                response = tester.get('/')
+                self.assertEqual(response.status_code, 200)
+            
+            def test_no_image_upload(self):
+                tester = app.test_client(self)
+                response = tester.post('/')
+                self.assertEqual(response.status_code, 200)
+
+        if __name__ == '__main__':
+            unittest.main()
+        EOF
+        fi
+        python -m pytest test_app.py -v
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Deploy to Render
+      if: false  # Измените на true и настройте когда будете готовы
+      env:
+        RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      run: |
+        echo "Здесь будет деплой на Render/Vercel/Heroku"
+        # Пример для Render:
+        # curl -X POST https://api.render.com/v1/services/.../deploys \
+        #   -H "Authorization: Bearer $RENDER_API_KEY"
