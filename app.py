@@ -1,6 +1,5 @@
 from flask import Flask, render_template, request, send_file
-from PIL import Image
-import matplotlib.pyplot as plt
+from PIL import Image, ImageDraw
 import numpy as np
 import io
 import base64
@@ -43,24 +42,66 @@ def add_noise(image, noise_level):
 
 
 def create_color_histogram(image, title):
+    """Создает гистограмму цветов без matplotlib"""
     img_array = np.array(image)
-    plt.figure(figsize=(10, 6))
+
+    # Размеры гистограммы
+    width, height = 800, 400
+    hist_img = Image.new('RGB', (width, height), 'white')
+    draw = ImageDraw.Draw(hist_img)
+
+    # Цвета каналов
     colors = ['red', 'green', 'blue']
+    channel_data = []
 
+    # Собираем данные по каналам
+    for i in range(3):
+        channel = img_array[:, :, i].flatten()
+        hist, bins = np.histogram(channel, bins=256, range=(0, 255))
+        hist = hist / hist.max()  # Нормализуем
+        channel_data.append(hist)
+
+    # Рисуем оси
+    draw.line([(50, 50), (50, height - 50)], fill='black', width=2)  # Y ось
+    draw.line([(50, height - 50), (width - 50, height - 50)], fill='black', width=2)  # X ось
+
+    # Подписи осей
+    draw.text((30, 20), title, fill='black')
+    draw.text((width // 2, height - 30), 'Значение пикселя', fill='black')
+    draw.text((10, height // 2), 'Частота', fill='black', angle=90)
+
+    # Рисуем гистограммы для каждого канала
     for i, color in enumerate(colors):
-        plt.hist(img_array[:, :, i].ravel(), bins=256, color=color, alpha=0.5,
-                 label=f'{color.upper()} канал', density=True)
+        hist = channel_data[i]
+        color_map = {'red': (255, 0, 0), 'green': (0, 255, 0), 'blue': (0, 0, 255)}
 
-    plt.title(f'Распределение цветов - {title}')
-    plt.xlabel('Значение пикселя')
-    plt.ylabel('Плотность')
-    plt.legend()
-    plt.grid(True, alpha=0.3)
+        # Рисуем график
+        for j in range(255):
+            x1 = 50 + j * (width - 100) // 256
+            x2 = 50 + (j + 1) * (width - 100) // 256
 
+            y1 = height - 50 - int(hist[j] * (height - 100))
+            y2 = height - 50 - int(hist[j + 1] * (height - 100))
+
+            # Полупрозрачное закрашивание
+            overlay = Image.new('RGBA', (x2 - x1, height - 50 - y1), (*color_map[color], 50))
+            hist_img.paste(overlay, (x1, y1), overlay)
+
+            # Линия графика
+            draw.line([(x1, y1), (x2, y2)], fill=color_map[color], width=2)
+
+    # Легенда
+    legend_y = 70
+    for i, color in enumerate(colors):
+        color_map = {'red': (255, 0, 0), 'green': (0, 255, 0), 'blue': (0, 0, 255)}
+        draw.rectangle([width - 150, legend_y + i * 30, width - 130, legend_y + i * 30 + 15],
+                       fill=color_map[color])
+        draw.text((width - 125, legend_y + i * 30), f'{color.upper()} канал', fill='black')
+
+    # Сохраняем в буфер
     buf = io.BytesIO()
-    plt.savefig(buf, format='png', dpi=100, bbox_inches='tight')
+    hist_img.save(buf, format='PNG', quality=95)
     buf.seek(0)
-    plt.close()
 
     return buf
 
@@ -118,7 +159,6 @@ def index():
                            captcha_error=captcha_error,
                            recaptcha_site_key=RECAPTCHA_SITE_KEY)
 
-# ... существующий код ...
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
